@@ -1,4 +1,5 @@
-from typing import Any, Literal, Optional, overload
+import annotated_types
+from typing import Annotated, Any, Literal, Optional, overload
 import aiohttp
 from aiohttp.typedefs import LooseHeaders
 
@@ -163,7 +164,17 @@ class Client:
     async def accounts_pending(
         self,
         accounts: list[str],
-        threshold: int,
+        threshold: None,
+        source: Optional[Literal[False]],
+        **kwargs
+    ) -> dict[str, list[str]]:
+        ...
+
+    @overload
+    async def accounts_pending(
+        self,
+        accounts: list[str],
+        threshold: Annotated[int, annotated_types.Gt(0)],
         source: Optional[Literal[False]],
         **kwargs
     ) -> dict[str, dict[str, int]]:
@@ -173,15 +184,9 @@ class Client:
     async def accounts_pending(
         self,
         accounts: list[str],
-        threshold: Optional[Literal[0]],
-        source: Optional[Literal[False]],
+        threshold: Optional[int],
+        source: Literal[True],
         **kwargs
-    ) -> dict[str, list[str]]:
-        ...
-
-    @overload
-    async def accounts_pending(
-        self, accounts: list[str], threshold: Any, source: Literal[True], **kwargs
     ) -> dict[str, dict[str, AccountPendingInfo]]:
         ...
 
@@ -191,7 +196,7 @@ class Client:
         threshold: Optional[int] = None,
         source: Optional[bool] = None,
         **kwargs
-    ):
+    ):  # TODO: Fix return type hint for cases where threshold is a 0 literal
         """
         Returns a list of confirmed block hashes which have not yet been received by
         these accounts
@@ -518,14 +523,12 @@ class Client:
         return {k: LedgerInfo(**v) for k, v in accounts.items()}
 
     @overload
-    async def peers(
-        self, peer_details: Literal[True] = True, **kwargs
-    ) -> dict[str, PeerInfo]:
+    async def peers(self, peer_details: Literal[True], **kwargs) -> dict[str, PeerInfo]:
         ...
 
     @overload
     async def peers(
-        self, peer_details: Literal[False] | None = False, **kwargs
+        self, peer_details: Optional[Literal[False]], **kwargs
     ) -> dict[str, int]:
         ...
 
@@ -548,7 +551,7 @@ class Client:
 
     @overload
     async def process(
-        self, subtype: str, block: Any, sync: Literal[True] | None, **kwargs
+        self, subtype: str, block: Any, sync: Optional[Literal[True]], **kwargs
     ) -> str:
         ...
 
@@ -581,11 +584,7 @@ class Client:
 
     @overload
     async def receivable(
-        self,
-        account: str,
-        threshold: Literal[0] | None = None,
-        source: Literal[False] | None = None,
-        **kwargs
+        self, account: str, threshold: None, source: Optional[Literal[False]], **kwargs
     ) -> list[str]:
         ...
 
@@ -593,20 +592,20 @@ class Client:
     async def receivable(
         self,
         account: str,
-        threshold: int,
-        source: Literal[False] | None = None,
+        threshold: Optional[int],
+        source: Literal[True] = True,
         **kwargs
-    ) -> dict[str, int]:
+    ) -> dict[str, Receivable]:
         ...
 
     @overload
     async def receivable(
         self,
         account: str,
-        threshold: Optional[int] = None,
-        source: Literal[True] = True,
+        threshold: Annotated[int, annotated_types.Gt(0)],
+        source: Optional[Literal[False]],
         **kwargs
-    ) -> dict[str, Receivable]:
+    ) -> dict[str, int]:
         ...
 
     async def receivable(
@@ -615,7 +614,7 @@ class Client:
         threshold: Optional[int] = None,
         source: Optional[bool] = None,
         **kwargs
-    ):
+    ):  # TODO: Fix return type hint for cases where threshold is a 0 literal
         """
         Returns a list of block hashes which have not yet been received by this account.
         https://docs.nano.org/commands/rpc-protocol/#receivable
@@ -660,7 +659,7 @@ class Client:
 
     @overload
     async def representatives_online(
-        self, weight: Literal[False] | None = None, **kwargs
+        self, weight: Optional[Literal[False]], **kwargs
     ) -> list[str]:
         ...
 
