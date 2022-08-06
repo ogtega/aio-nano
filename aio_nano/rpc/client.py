@@ -1,5 +1,5 @@
-import annotated_types
-from typing import Annotated, Any, Literal, Optional, overload
+from typing import Any, Literal, Optional, overload
+
 import aiohttp
 from aiohttp.typedefs import LooseHeaders
 
@@ -8,12 +8,11 @@ from aio_nano.rpc.models import (
     AccountHistory,
     AccountInfo,
     AccountPendingInfo,
+    ActiveConfirmations,
     Block,
     BlockCount,
-    SignedBlock,
     BlockInfo,
     BlocksInfo,
-    ActiveConfirmations,
     ConfirmationInfo,
     ConfirmationQuorum,
     DeterministicKeypair,
@@ -21,6 +20,7 @@ from aio_nano.rpc.models import (
     PeerInfo,
     Receivable,
     Representative,
+    SignedBlock,
 )
 
 
@@ -174,7 +174,7 @@ class Client:
     async def accounts_pending(
         self,
         accounts: list[str],
-        threshold: Annotated[int, annotated_types.Gt(0)],
+        threshold: int,
         source: Optional[Literal[False]],
         **kwargs
     ) -> dict[str, dict[str, int]]:
@@ -600,11 +600,7 @@ class Client:
 
     @overload
     async def receivable(
-        self,
-        account: str,
-        threshold: Annotated[int, annotated_types.Gt(0)],
-        source: Optional[Literal[False]],
-        **kwargs
+        self, account: str, threshold: int, source: Optional[Literal[False]], **kwargs
     ) -> dict[str, int]:
         ...
 

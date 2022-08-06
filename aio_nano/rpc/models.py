@@ -1,6 +1,7 @@
-from typing import Any, Optional, Literal
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
 
 
 class BlockSubtype(str, Enum):
@@ -48,7 +49,7 @@ class AccountBalance(BaseModel):
     receivable: int
 
 
-class AccountHistoryItem(Block):
+class HistoricalBlock(Block):
     local_timestamp: int
     height: int
     hash: str
@@ -59,7 +60,7 @@ class AccountHistoryItem(Block):
 
 class AccountHistory(BaseModel):
     account: str
-    history: list[AccountHistoryItem]
+    history: list[HistoricalBlock]
     previous: Optional[str]
     next: Optional[str]
 
