@@ -29,14 +29,13 @@ class Client:
     _base_path: str
 
     def __init__(
-        self, url: str = "http://localhost:7076", headers: Optional[LooseHeaders] = {}
+        self,
+        uri: str = "http://localhost:7076",
+        **args: Any,
     ) -> None:
-        parsed = urlsplit(url)
+        parsed = urlsplit(uri)
         self._base_path = parsed.path
-        self.client = aiohttp.ClientSession(
-            urlunsplit(parsed[:2] + ("",) * 3),
-            headers=headers,
-        )
+        self.client = aiohttp.ClientSession(urlunsplit(parsed[:2] + ("",) * 3), **args)
 
     async def _post(self, data: Any) -> dict[str, Any]:
         async with self.client.post(f"{self._base_path}/", json=data) as res:
