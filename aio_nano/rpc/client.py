@@ -1,4 +1,5 @@
 from typing import Any, Literal, Optional, overload
+from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
 from aiohttp.typedefs import LooseHeaders
@@ -25,16 +26,20 @@ from aio_nano.rpc.models import (
 
 
 class Client:
+    _base_path: str
+
     def __init__(
         self, url: str = "http://localhost:7076", headers: Optional[LooseHeaders] = {}
     ) -> None:
+        parsed = urlsplit(url)
+        self._base_path = parsed.path
         self.client = aiohttp.ClientSession(
-            url,
+            urlunsplit(parsed[:2] + ("",) * 3),
             headers=headers,
         )
 
     async def _post(self, data: Any) -> dict[str, Any]:
-        async with self.client.post("/", json=data) as res:
+        async with self.client.post(f"{self._base_path}/", json=data) as res:
             return await res.json()
 
     async def call(self, action: str, **kwargs: Any) -> dict[str, Any]:
@@ -166,7 +171,7 @@ class Client:
         accounts: list[str],
         threshold: None,
         source: Optional[Literal[False]],
-        **kwargs
+        **kwargs,
     ) -> dict[str, list[str]]:
         ...
 
@@ -176,7 +181,7 @@ class Client:
         accounts: list[str],
         threshold: int,
         source: Optional[Literal[False]],
-        **kwargs
+        **kwargs,
     ) -> dict[str, dict[str, int]]:
         ...
 
@@ -186,7 +191,7 @@ class Client:
         accounts: list[str],
         threshold: Optional[int],
         source: Literal[True],
-        **kwargs
+        **kwargs,
     ) -> dict[str, dict[str, AccountPendingInfo]]:
         ...
 
@@ -195,7 +200,7 @@ class Client:
         accounts: list[str],
         threshold: Optional[int] = None,
         source: Optional[bool] = None,
-        **kwargs
+        **kwargs,
     ):  # TODO: Fix return type hint for cases where threshold is a 0 literal
         """
         Returns a list of confirmed block hashes which have not yet been received by
@@ -594,7 +599,7 @@ class Client:
         account: str,
         threshold: Optional[int],
         source: Literal[True] = True,
-        **kwargs
+        **kwargs,
     ) -> dict[str, Receivable]:
         ...
 
@@ -609,7 +614,7 @@ class Client:
         account: str,
         threshold: Optional[int] = None,
         source: Optional[bool] = None,
-        **kwargs
+        **kwargs,
     ):  # TODO: Fix return type hint for cases where threshold is a 0 literal
         """
         Returns a list of block hashes which have not yet been received by this account.
