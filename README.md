@@ -14,7 +14,7 @@ This library contains an asynchronous python RPC client for Nano nodes, allowing
 
 `poetry add aio-nano`
 
-## Example
+## Example Async HTTP RPC Call
 
 ```python
 from aio_nano import Client
@@ -28,4 +28,26 @@ async def main():
   print(supply)
 
 asyncio.run(main())
+```
+
+## Example Async WebSocket RPC Subscription
+
+```python
+import asyncio
+from time import time
+
+from aio_nano import WSClient
+
+
+async def main():
+  ws = await WSClient("ws://localhost:7078").connect()
+  start = time() * 1000
+  await ws.subscribe("confirmation", lambda x: print(x), ack=True)
+  print(f"Acked in {time() * 1000 - start}ms")
+
+  await asyncio.Future()
+
+
+asyncio.run(main())
+
 ```

@@ -7,7 +7,6 @@ from typing import Any, Callable, Literal, overload
 
 from websockets.client import WebSocketClientProtocol, connect
 from websockets.exceptions import ConnectionClosed
-from websockets.typing import Data
 
 from aio_nano.ws.models import (
     Block,
@@ -57,9 +56,10 @@ class WSClient(connect):
         self._callbacks = {}
         self._ackmap = {}
 
-    async def connect(self):
+    async def connect(self) -> "WSClient":
         self.client = await self.connection
         self.loop.create_task(self._recv())
+        return self
 
     async def send(self, data: dict[str, Any], ack: bool = False):
         if ack:
