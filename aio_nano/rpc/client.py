@@ -2,7 +2,7 @@ from typing import Any, Literal, Optional, overload
 from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
-from aiohttp.typedefs import LooseHeaders
+from pydantic import parse_obj_as
 
 from aio_nano.rpc.models import (
     AccountBalance,
@@ -17,11 +17,17 @@ from aio_nano.rpc.models import (
     ConfirmationInfo,
     ConfirmationQuorum,
     DeterministicKeypair,
+    LazyBootstrapInfo,
     LedgerInfo,
     PeerInfo,
     Receivable,
     Representative,
     SignedBlock,
+    Telemetry,
+    UncheckedBlock,
+    ValidationInfo,
+    VersionInfo,
+    WorkInfo,
 )
 
 
@@ -42,7 +48,12 @@ class Client:
             return await res.json()
 
     async def call(self, action: str, **kwargs: Any) -> dict[str, Any]:
-        return await self._post({"action": action, **kwargs})
+        res = await self._post({"action": action, **kwargs})
+
+        if res.get("error"):
+            raise
+
+        return res
 
     async def account_balance(self, account: str, **kwargs: Any) -> AccountBalance:
         """
@@ -360,6 +371,33 @@ class Client:
             res["blocks_not_found"] = []
 
         return BlocksInfo(**res)
+
+    async def bootstrap(self, address: str, port: str, **kwargs) -> bool:
+        """
+        Initialize bootstrap to specific IP address and port. Not compatible with launch
+        flag [--disable_legacy_bootstrap](https://docs.nano.org/commands/command-line-interface/#-disable_legacy_bootstrap)
+        https://docs.nano.org/commands/rpc-protocol/#bootstrap
+        """
+
+        kwargs["address"] = address
+        kwargs["port"] = port
+
+        res = await self.call("bootstrap", **kwargs)
+
+        return "success" in res
+
+    async def boostrap_lazy(self, hash: str, **kwargs) -> LazyBootstrapInfo:
+        """
+        Initialize lazy bootstrap with given block hash. Not compatible with launch flag
+        [--disable_lazy_bootstrap](https://docs.nano.org/commands/command-line-interface/#-disable_lazy_bootstrap)
+        https://docs.nano.org/commands/rpc-protocol/#bootstrap_lazy
+        """
+
+        kwargs["hash"] = hash
+
+        res = await self.call("bootstrap_lazy", **kwargs)
+
+        return LazyBootstrapInfo(**res)
 
     async def chain(self, block: str, count: int = -1, **kwargs) -> list[str]:
         """
@@ -712,6 +750,25 @@ class Client:
         res = await self.call("sign", **kwargs)
         return str(res.get("signature", ""))
 
+    async def stats_clear(self, **kwargs) -> bool:
+        """
+        Clears all collected statistics. The "stat_duration_seconds" value in the
+        "stats" action is also reset
+        https://docs.nano.org/commands/rpc-protocol/#stats_clear
+        """
+
+        res = await self.call("stats_clear", **kwargs)
+        return "success" in res
+
+    async def stop(self, **kwargs) -> bool:
+        """
+        Method to safely shutdown node
+        https://docs.nano.org/commands/rpc-protocol/#stop
+        """
+
+        res = await self.call("stop", **kwargs)
+        return "success" in res
+
     async def successors(self, block: str, count: int = -1, **kwargs) -> list[str]:
         """
         Signing provided block with private key or key of account from wallet
@@ -723,3 +780,228 @@ class Client:
 
         res = await self.call("successors", **kwargs)
         return list(res.get("blocks", []))
+
+    @overload
+    async def telemetry(self, raw: Literal[True], **kwargs) -> list[Telemetry]:
+        ...
+
+    @overload
+    async def telemetry(self, raw: Literal[False], **kwargs) -> Telemetry:
+        ...
+
+    async def telemetry(self, raw: bool = False, **kwargs):
+        """
+        Return metrics from other nodes on the network. By default, returns a summarized
+        view of the whole network. See below for details on obtaining local telemetry data.
+        https://docs.nano.org/commands/rpc-protocol/#telemetry
+        """
+
+        if raw:
+            kwargs["raw"] = raw
+
+        res = await self.call("telemetry", **kwargs)
+
+        return (
+            parse_obj_as(list[Telemetry], res) if raw else parse_obj_as(Telemetry, res)
+        )
+
+    async def validate_account_number(self, account: str, **kwargs) -> bool:
+        """
+        Check whether account is a valid account number using checksum
+        https://docs.nano.org/commands/rpc-protocol/#validate_account_number
+        """
+
+        kwargs["account"] = account
+
+        res = await self.call("validate_account_number", **kwargs)
+
+        return bool(res.get("valid"))
+
+    async def version(self, **kwargs) -> VersionInfo:
+        """
+        Returns version information for RPC, Store, Protocol (network),
+        Node (Major & Minor version)
+        https://docs.nano.org/commands/rpc-protocol/#version
+        """
+
+        res = await self.call("version", **kwargs)
+
+        return VersionInfo(**res)
+
+    async def unchecked(self, count: Optional[int], **kwargs) -> list[Block]:
+        """
+        Returns a list of pairs of unchecked block hashes and their json representation
+        up to count
+        https://docs.nano.org/commands/rpc-protocol/#unchecked
+        """
+
+        kwargs["json_block"] = True
+
+        if count:
+            kwargs["count"] = count
+
+        res = await self.call("unchecked", **kwargs)
+        blocks = res.get("blocks")
+
+        return parse_obj_as(list[Block], blocks if blocks else [])
+
+    async def unchecked_clear(self, **kwargs) -> bool:
+        """
+        Clear unchecked synchronizing blocks
+        https://docs.nano.org/commands/rpc-protocol/#unchecked_clear
+        """
+
+        res = await self.call("unchecked_clear", **kwargs)
+
+        return "success" in res
+
+    async def unchecked_get(self, hash: str, **kwargs) -> Block:
+        """
+        Retrieves a json representation of unchecked synchronizing block by hash
+        https://docs.nano.org/commands/rpc-protocol/#unchecked_get
+        """
+
+        kwargs["hash"] = hash
+
+        res = await self.call("unchecked_get", **kwargs)
+
+        return Block(**res)
+
+    async def unchecked_keys(
+        self, key: str, count: Optional[int], **kwargs
+    ) -> list[UncheckedBlock]:
+        """
+        Retrieves unchecked database keys, blocks hashes & a json representations of
+        unchecked receivable blocks starting from key up to count
+        https://docs.nano.org/commands/rpc-protocol/#unchecked_keys
+        """
+
+        kwargs["json_block"] = True
+        kwargs["key"] = key
+
+        if count:
+            kwargs["count"] = count
+
+        res = await self.call("unchecked_keys", **kwargs)
+        unchecked = res.get("unchecked")
+
+        return parse_obj_as(list[UncheckedBlock], unchecked)
+
+    async def unopened(
+        self, account: Optional[str], count: Optional[int], **kwargs
+    ) -> dict[str, int]:
+        """
+        Returns the total receivable balance for unopened accounts in the local database,
+        starting at account (optional) up to count (optional), sorted by account number
+        https://docs.nano.org/commands/rpc-protocol/#unopened
+        """
+
+        kwargs["json_block"] = True
+
+        if account:
+            kwargs["account"] = account
+
+        if count:
+            kwargs["count"] = count
+
+        res = await self.call("unopened", **kwargs)
+        accounts = res.get("accounts")
+
+        return parse_obj_as(dict[str, int], accounts)
+
+    async def uptime(self, **kwargs) -> int:
+        """
+        Return node uptime in seconds
+        https://docs.nano.org/commands/rpc-protocol/#uptime
+        """
+
+        res = await self.call("unopened", **kwargs)
+
+        return int(res.get("seconds", 0))
+
+    async def work_cancel(self, hash: str, **kwargs) -> bool:
+        """
+        Stop generating work for block
+        https://docs.nano.org/commands/rpc-protocol/#work_cancel
+        """
+
+        kwargs["hash"] = hash
+
+        res = await self.call("work_cancel", **kwargs)
+
+        return "success" in res
+
+    async def work_generate(self, hash: str, **kwargs) -> WorkInfo:
+        """
+        Stop generating work for block
+        https://docs.nano.org/commands/rpc-protocol/#work_generate
+        """
+
+        kwargs["hash"] = hash
+
+        res = await self.call("work_generate", **kwargs)
+
+        return WorkInfo(**res)
+
+    async def work_peer_add(self, address: str, port: str, **kwargs) -> bool:
+        """
+        Add specific IP address and port as work peer for node until restart
+        https://docs.nano.org/commands/rpc-protocol/#work_peer_add
+        """
+
+        kwargs["address"] = address
+        kwargs["port"] = port
+
+        res = await self.call("work_peer_add", **kwargs)
+
+        return "success" in res
+
+    async def work_peers(self, **kwargs) -> list[str]:
+        """
+        https://docs.nano.org/commands/rpc-protocol/#work_peers
+        """
+
+        res = await self.call("work_peers", **kwargs)
+
+        peers = res.get("work_peers") or []
+
+        return parse_obj_as(list[str], peers)
+
+    async def work_peers_clear(self, **kwargs) -> bool:
+        """
+        Clear work peers node list until restart
+        https://docs.nano.org/commands/rpc-protocol/#work_peers_clear
+        """
+
+        res = await self.call("work_peers_clear", **kwargs)
+        return "success" in res
+
+    async def work_validate(self, work: str, hash: str, **kwargs) -> ValidationInfo:
+        """
+        Check whether work is valid for block
+        https://docs.nano.org/commands/rpc-protocol/#work_validate
+        """
+
+        kwargs["work"] = work
+        kwargs["hash"] = hash
+
+        res = await self.call("work_validate", **kwargs)
+        return ValidationInfo(**res)
+
+    async def nano_to_raw(self, amount: int):
+        """
+        Convert nano amount (10^30 raw) into raw (10^0)
+        https://docs.nano.org/commands/rpc-protocol/#nano_to_raw
+        """
+
+        res = await self.call("nano_to_raw", amount=amount)
+        return int(res.get("amount", 0))
+
+    async def raw_to_nano(self, amount: int):
+        """
+        Convert raw amount (10^0) into nano (10^30 raw)
+        https://docs.nano.org/commands/rpc-protocol/#raw_to_nano
+        """
+
+        res = await self.call("raw_to_nano", amount=amount)
+        return int(res.get("amount", 0))

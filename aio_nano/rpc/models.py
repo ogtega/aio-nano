@@ -1,3 +1,4 @@
+from decimal import Decimal
 from enum import Enum
 from typing import Literal, Optional
 
@@ -129,6 +130,11 @@ class ConfirmationInfo(BaseModel):
     blocks: dict[str, Confirmation]
 
 
+class LazyBootstrapInfo(BaseModel):
+    started: bool
+    key_inserted: bool
+
+
 class ConfirmationQuorumPeer(BaseModel):
     account: str
     ip: str
@@ -177,3 +183,59 @@ class Receivable(BaseModel):
 
 class Representative(BaseModel):
     weight: int
+
+
+class Telemetry(BaseModel):
+    block_count: int
+    cemented_count: int
+    unchecked_count: int
+    account_count: int
+    bandwidth_cap: int
+    peer_count: int
+    protocol_version: int
+    uptime: int
+    genesis_block: str
+    major_version: int
+    minor_version: int
+    patch_version: int
+    pre_release_version: int
+    maker: int
+    timestamp: int
+    active_difficulty: str
+    node_id: Optional[str]
+    signature: Optional[str]
+    address: Optional[str]
+    port: Optional[str]
+
+
+class VersionInfo(BaseModel):
+    rpc_version: int
+    store_version: int
+    protocol_version: int
+    node_vendor: str
+    store_vendor: str
+    network: str
+    network_identifier: str
+    build_info: str
+
+
+class UncheckedBlock(BaseModel):
+    key: str
+    hash: str
+    modified_timestamp: int
+    contents: Block
+
+
+class WorkInfo(BaseModel):
+    work: str
+    difficulty: str
+    multiplier: Decimal
+    hash: str
+
+
+class ValidationInfo(BaseModel):
+    valid: Optional[bool]
+    valid_all: bool
+    valid_receive: bool
+    difficulty: str
+    multiplier: Decimal
