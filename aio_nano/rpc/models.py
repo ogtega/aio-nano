@@ -44,7 +44,7 @@ class BlockInfo(BaseModel):
     source_account: Optional[str]
 
 
-class AccountBalance(BaseModel):
+class AccountBalances(BaseModel):
     balance: int
     pending: int
     receivable: int
@@ -56,7 +56,15 @@ class HistoricalBlock(Block):
     hash: str
     confirmed: bool
     subtype: Optional[BlockSubtype]
-    amount: int
+    balance: int = Field(alias="amount")
+    previous: Optional[str]
+    representative: Optional[str]
+    signature: Optional[str]
+    work: Optional[str]
+    link: Optional[str]
+
+    class Config:
+        allow_population_by_field_name = True
 
 
 class AccountHistory(BaseModel):

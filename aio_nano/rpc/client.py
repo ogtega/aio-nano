@@ -5,7 +5,7 @@ import aiohttp
 from pydantic import parse_obj_as
 
 from aio_nano.rpc.models import (
-    AccountBalance,
+    AccountBalances,
     AccountHistory,
     AccountInfo,
     AccountPendingInfo,
@@ -60,7 +60,7 @@ class Client:
 
         return res
 
-    async def account_balance(self, account: str, **kwargs: Any) -> AccountBalance:
+    async def account_balance(self, account: str, **kwargs: Any) -> AccountBalances:
         """
         Returns how many RAW is owned and how many have not yet been received by account
         https://docs.nano.org/commands/rpc-protocol/#account_balance
@@ -69,7 +69,7 @@ class Client:
         kwargs["account"] = account
 
         res = await self.call("account_balance", **kwargs)
-        return AccountBalance(**res)
+        return AccountBalances(**res)
 
     async def account_block_count(self, account: str, **kwargs: Any) -> int:
         """
@@ -154,7 +154,7 @@ class Client:
 
     async def accounts_balances(
         self, accounts: list[str], **kwargs
-    ) -> dict[str, AccountBalance]:
+    ) -> dict[str, AccountBalances]:
         """
         Returns how many RAW is owned and how many have not yet been received by
         accounts list
@@ -165,7 +165,7 @@ class Client:
 
         res = await self.call("accounts_balances", **kwargs)
         return {
-            k: AccountBalance(**v) for (k, v) in dict(res.get("balances", {})).items()
+            k: AccountBalances(**v) for (k, v) in dict(res.get("balances", {})).items()
         }
 
     async def accounts_frontiers(self, accounts: list[str], **kwargs) -> dict[str, str]:
@@ -806,9 +806,10 @@ class Client:
 
         res = await self.call("telemetry", **kwargs)
 
-        return (
-            parse_obj_as(list[Telemetry], res) if raw else parse_obj_as(Telemetry, res)
-        )
+        if raw:
+            return parse_obj_as(list[Telemetry], res.get("metrics", []))
+
+        return parse_obj_as(Telemetry, res)
 
     async def validate_account_number(self, account: str, **kwargs) -> bool:
         """
