@@ -164,9 +164,8 @@ class Client:
         kwargs["accounts"] = accounts
 
         res = await self.call("accounts_balances", **kwargs)
-        return {
-            k: AccountBalances(**v) for (k, v) in dict(res.get("balances", {})).items()
-        }
+
+        return parse_obj_as(dict[str, AccountBalances], res.get("balances", {}))
 
     async def accounts_frontiers(self, accounts: list[str], **kwargs) -> dict[str, str]:
         """
@@ -186,7 +185,7 @@ class Client:
         accounts: list[str],
         threshold: None,
         source: Optional[Literal[False]],
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, list[str]]:
         ...
 
@@ -196,7 +195,7 @@ class Client:
         accounts: list[str],
         threshold: int,
         source: Optional[Literal[False]],
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, dict[str, int]]:
         ...
 
@@ -206,7 +205,7 @@ class Client:
         accounts: list[str],
         threshold: Optional[int],
         source: Literal[True],
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, dict[str, AccountPendingInfo]]:
         ...
 
@@ -215,7 +214,7 @@ class Client:
         accounts: list[str],
         threshold: Optional[int] = None,
         source: Optional[bool] = None,
-        **kwargs,
+        **kwargs: Any,
     ):  # TODO: Fix return type hint for cases where threshold is a 0 literal
         """
         Returns a list of confirmed block hashes which have not yet been received by

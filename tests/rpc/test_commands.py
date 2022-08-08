@@ -5,7 +5,12 @@ from pytest import MonkeyPatch
 
 from aio_nano import Client
 from aio_nano.rpc.client import RPCException
-from aio_nano.rpc.models import AccountBalances, AccountHistory, AccountInfo
+from aio_nano.rpc.models import (
+    AccountBalances,
+    AccountHistory,
+    AccountInfo,
+    Representative,
+)
 
 
 class TestRPCClient:
@@ -304,3 +309,126 @@ class TestRPCClient:
 
         assert key == "3068BB1CA04525BB0E416C485FE6A67FD52540227D267CC8B6E8DA958A7FA039"
         assert type(key) == str
+
+    async def test_account_representative(
+        self,
+        rpc: Client,
+        event_loop: asyncio.AbstractEventLoop,
+        monkeypatch: MonkeyPatch,
+    ):
+        monkeypatch.setattr(
+            rpc,
+            "_post",
+            lambda _: event_loop.run_in_executor(
+                None,
+                lambda: {
+                    "representative": "nano_16u1uufyoig8777y6r8iqjtrw8sg8maqrm36zzcm95jmbd9i9aj5i8abr8u5"
+                },
+            ),
+        )
+
+        representative = await rpc.account_representative(
+            account="nano_39a73oy5ungrhxy5z5oao1xso4zo7dmgpjd4u74xcrx3r1w6rtazuouw6qfi"
+        )
+
+        assert (
+            representative
+            == "nano_16u1uufyoig8777y6r8iqjtrw8sg8maqrm36zzcm95jmbd9i9aj5i8abr8u5"
+        )
+        assert type(representative) == str
+
+    async def test_account_weight(
+        self,
+        rpc: Client,
+        event_loop: asyncio.AbstractEventLoop,
+        monkeypatch: MonkeyPatch,
+    ):
+        monkeypatch.setattr(
+            rpc,
+            "_post",
+            lambda _: event_loop.run_in_executor(
+                None,
+                lambda: {"weight": "10000"},
+            ),
+        )
+
+        weight = await rpc.account_weight(
+            account="nano_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpi00000000"
+        )
+
+        assert weight == 10000
+        assert type(weight) == int
+
+    async def test_accounts_balances(
+        self,
+        rpc: Client,
+        event_loop: asyncio.AbstractEventLoop,
+        monkeypatch: MonkeyPatch,
+    ):
+        monkeypatch.setattr(
+            rpc,
+            "_post",
+            lambda _: event_loop.run_in_executor(
+                None,
+                lambda: {
+                    "balances": {
+                        "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3": {
+                            "balance": "325586539664609129644855132177",
+                            "pending": "2309372032769300000000000000000000",
+                            "receivable": "2309372032769300000000000000000000",
+                        },
+                        "nano_3i1aq1cchnmbn9x5rsbap8b15akfh7wj7pwskuzi7ahz8oq6cobd99d4r3b7": {
+                            "balance": "10000000",
+                            "pending": "0",
+                            "receivable": "0",
+                        },
+                    }
+                },
+            ),
+        )
+
+        balances = await rpc.accounts_balances(
+            accounts=[
+                "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3",
+                "nano_3i1aq1cchnmbn9x5rsbap8b15akfh7wj7pwskuzi7ahz8oq6cobd99d4r3b7",
+            ]
+        )
+
+        assert type(balances) == dict
+
+        for _, balance in balances.items():
+            assert type(balance) == AccountBalances
+
+        assert len(balances) == 2
+
+    async def test_accounts_frontiers(
+        self,
+        rpc: Client,
+        event_loop: asyncio.AbstractEventLoop,
+        monkeypatch: MonkeyPatch,
+    ):
+        monkeypatch.setattr(
+            rpc,
+            "_post",
+            lambda _: event_loop.run_in_executor(
+                None,
+                lambda: {
+                    "frontiers": {
+                        "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3": "791AF413173EEE674A6FCF633B5DFC0F3C33F397F0DA08E987D9E0741D40D81A",
+                        "nano_3i1aq1cchnmbn9x5rsbap8b15akfh7wj7pwskuzi7ahz8oq6cobd99d4r3b7": "6A32397F4E95AF025DE29D9BF1ACE864D5404362258E06489FABDBA9DCCC046F",
+                    }
+                },
+            ),
+        )
+
+        frontiers = await rpc.accounts_frontiers(
+            accounts=[
+                "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3",
+                "nano_3i1aq1cchnmbn9x5rsbap8b15akfh7wj7pwskuzi7ahz8oq6cobd99d4r3b7",
+            ]
+        )
+
+        assert type(frontiers) == dict
+
+        for _, frontier in frontiers.items():
+            assert type(frontier) == str
