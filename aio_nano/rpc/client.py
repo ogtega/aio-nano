@@ -31,6 +31,11 @@ from aio_nano.rpc.models import (
 )
 
 
+class RPCException(Exception):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(kwargs.get("message"))
+
+
 class Client:
     _base_path: str
 
@@ -50,8 +55,8 @@ class Client:
     async def call(self, action: str, **kwargs: Any) -> dict[str, Any]:
         res = await self._post({"action": action, **kwargs})
 
-        if res.get("error"):
-            raise
+        if err := res.get("error"):
+            raise RPCException(message=err)
 
         return res
 
