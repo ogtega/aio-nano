@@ -2,7 +2,7 @@
 
 ## Overview
 
-This library contains an asynchronous python RPC client for Nano nodes, allowing you to more easily develop on the Nano network with with fully type annnotated methods and responses.
+This library contains an asynchronous python RPC client for Nano nodes, allowing you to more easily develop on the Nano network with fully type annnotated methods and responses.
 
 ## Installation
 
