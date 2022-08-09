@@ -50,13 +50,15 @@ class AccountBalances(BaseModel):
     receivable: int
 
 
-class HistoricalBlock(Block):
+class HistoricalBlock(BaseModel):
+    type: str
+    account: str
+    balance: int = Field(alias="amount")
     local_timestamp: int
     height: int
     hash: str
     confirmed: bool
     subtype: Optional[BlockSubtype]
-    balance: int = Field(alias="amount")
     previous: Optional[str]
     representative: Optional[str]
     signature: Optional[str]

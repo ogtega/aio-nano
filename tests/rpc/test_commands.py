@@ -9,6 +9,7 @@ from aio_nano.rpc.models import (
     AccountBalances,
     AccountHistory,
     AccountInfo,
+    AccountPendingInfo,
     Representative,
 )
 
@@ -432,3 +433,116 @@ class TestRPCClient:
 
         for _, frontier in frontiers.items():
             assert type(frontier) == str
+
+    async def test_accounts_pending(
+        self,
+        rpc: Client,
+        event_loop: asyncio.AbstractEventLoop,
+        monkeypatch: MonkeyPatch,
+    ):
+        monkeypatch.setattr(
+            rpc,
+            "_post",
+            lambda _: event_loop.run_in_executor(
+                None,
+                lambda: {
+                    "blocks": {
+                        "nano_1111111111111111111111111111111111111111111111111117353trpda": [
+                            "142A538F36833D1CC78B94E11C766F75818F8B940771335C6C1B8AB880C5BB1D"
+                        ],
+                        "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3": [
+                            "4C1FEEF0BEA7F50BE35489A1233FE002B212DEA554B55B1B470D78BD8F210C74"
+                        ],
+                    }
+                },
+            ),
+        )
+
+        pending = await rpc.accounts_pending(
+            accounts=[
+                "nano_1111111111111111111111111111111111111111111111111117353trpda",
+                "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3",
+            ],
+            count=1,
+        )
+
+        assert type(pending) == dict
+
+        for _, pending_blocks in pending.items():
+            assert type(pending_blocks) == list
+            for hash in pending_blocks:
+                assert type(hash) == str
+
+        monkeypatch.setattr(
+            rpc,
+            "_post",
+            lambda _: event_loop.run_in_executor(
+                None,
+                lambda: {
+                    "blocks": {
+                        "nano_1111111111111111111111111111111111111111111111111117353trpda": {
+                            "142A538F36833D1CC78B94E11C766F75818F8B940771335C6C1B8AB880C5BB1D": "6000000000000000000000000000000"
+                        },
+                        "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3": {
+                            "4C1FEEF0BEA7F50BE35489A1233FE002B212DEA554B55B1B470D78BD8F210C74": "106370018000000000000000000000000"
+                        },
+                    }
+                },
+            ),
+        )
+
+        threshold_pending = await rpc.accounts_pending(
+            accounts=[
+                "nano_1111111111111111111111111111111111111111111111111117353trpda",
+                "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3",
+            ],
+            count=1,
+            threshold=1000000000000000000000000,
+        )
+
+        assert type(threshold_pending) == dict
+
+        for _, threshold_blocks in threshold_pending.items():
+            assert type(threshold_blocks) == dict
+            for _, amount in threshold_blocks.items():
+                assert type(amount) == int
+
+        monkeypatch.setattr(
+            rpc,
+            "_post",
+            lambda _: event_loop.run_in_executor(
+                None,
+                lambda: {
+                    "blocks": {
+                        "nano_1111111111111111111111111111111111111111111111111117353trpda": {
+                            "142A538F36833D1CC78B94E11C766F75818F8B940771335C6C1B8AB880C5BB1D": {
+                                "amount": "6000000000000000000000000000000",
+                                "source": "nano_3dcfozsmekr1tr9skf1oa5wbgmxt81qepfdnt7zicq5x3hk65fg4fqj58mbr",
+                            }
+                        },
+                        "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3": {
+                            "4C1FEEF0BEA7F50BE35489A1233FE002B212DEA554B55B1B470D78BD8F210C74": {
+                                "amount": "106370018000000000000000000000000",
+                                "source": "nano_13ezf4od79h1tgj9aiu4djzcmmguendtjfuhwfukhuucboua8cpoihmh8byo",
+                            }
+                        },
+                    }
+                },
+            ),
+        )
+
+        source_pending = await rpc.accounts_pending(
+            accounts=[
+                "nano_1111111111111111111111111111111111111111111111111117353trpda",
+                "nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3",
+            ],
+            count=1,
+            source=True,
+        )
+
+        assert type(source_pending) == dict
+
+        for _, source_blocks in source_pending.items():
+            assert type(source_blocks) == dict
+            for _, info in source_blocks.items():
+                assert type(info) == AccountPendingInfo

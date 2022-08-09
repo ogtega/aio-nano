@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional, overload
+from typing import Any, Literal, Optional, TypedDict, overload
 from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
@@ -180,11 +180,12 @@ class Client:
         return res.get("frontiers", {})
 
     @overload
-    async def accounts_pending(
+    async def accounts_pending(  # type: ignore[misc]
         self,
         accounts: list[str],
-        threshold: None,
-        source: Optional[Literal[False]],
+        *,
+        threshold: Optional[Literal[0]] = None,
+        source: Optional[Literal[False]] = None,
         **kwargs: Any,
     ) -> dict[str, list[str]]:
         ...
@@ -193,8 +194,9 @@ class Client:
     async def accounts_pending(
         self,
         accounts: list[str],
+        *,
         threshold: int,
-        source: Optional[Literal[False]],
+        source: Optional[Literal[False]] = None,
         **kwargs: Any,
     ) -> dict[str, dict[str, int]]:
         ...
@@ -203,7 +205,8 @@ class Client:
     async def accounts_pending(
         self,
         accounts: list[str],
-        threshold: Optional[int],
+        *,
+        threshold: Optional[int] = None,
         source: Literal[True],
         **kwargs: Any,
     ) -> dict[str, dict[str, AccountPendingInfo]]:
@@ -212,6 +215,7 @@ class Client:
     async def accounts_pending(
         self,
         accounts: list[str],
+        *,
         threshold: Optional[int] = None,
         source: Optional[bool] = None,
         **kwargs: Any,
@@ -232,20 +236,11 @@ class Client:
         blocks = dict[str, Any](res.get("blocks", {}))
 
         if source:
-            return {
-                k: {
-                    str(block): AccountPendingInfo(**item)
-                    for block, item in dict(v).items()
-                }
-                for k, v in blocks.items()
-            }
+            return parse_obj_as(dict[str, dict[str, AccountPendingInfo]], blocks)
         if threshold:
-            return {
-                k: {str(block): int(amount) for block, amount in dict(v).items()}
-                for k, v in blocks.items()
-            }
+            return parse_obj_as(dict[str, dict[str, int]], blocks)
 
-        return dict[str, list[str]](blocks)
+        return parse_obj_as(dict[str, list[str]], blocks)
 
     async def accounts_representatives(
         self, accounts: list[str], **kwargs
