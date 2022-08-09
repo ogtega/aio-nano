@@ -104,7 +104,7 @@ class AccountPendingInfo(BaseModel):
     source: str
 
 
-class BlockCount(BaseModel):
+class BlockCounts(BaseModel):
     count: int
     unchecked: int
     cemented: Optional[int]
@@ -116,28 +116,23 @@ class SignedBlock(BaseModel):
     block: Block
 
 
-class BlocksInfo(BaseModel):
-    blocks: dict[str, BlockInfo]
-    blocks_not_found: Optional[list[str]]
-
-
-class ActiveConfirmations(BaseModel):
-    confirmations: list[str]
+class ActiveConfirmationInfo(BaseModel):
+    confirmations: list[str] = []
     unconfirmed: int
     confirmed: int
 
 
 class Confirmation(BaseModel):
     tally: int
-    contents: Block
-    representatives: Optional[dict[str, int]]
+    contents: Optional[Block]
+    representatives: dict[str, int] = {}
 
 
 class ConfirmationInfo(BaseModel):
     announcements: int
     last_winner: str
     total_tally: int
-    blocks: dict[str, Confirmation]
+    blocks: dict[str, Confirmation] = {}
 
 
 class LazyBootstrapInfo(BaseModel):
@@ -158,7 +153,7 @@ class ConfirmationQuorum(BaseModel):
     online_stake_total: int
     peers_stake_total: int
     trended_stake_total: int
-    peers: Optional[list[ConfirmationQuorumPeer]]
+    peers: list[ConfirmationQuorumPeer] = []
 
 
 class DeterministicKeypair(BaseModel):
