@@ -156,7 +156,7 @@ class ConfirmationQuorum(BaseModel):
     peers: list[ConfirmationQuorumPeer] = []
 
 
-class DeterministicKeypair(BaseModel):
+class Keypair(BaseModel):
     private: str
     public: str
     account: str

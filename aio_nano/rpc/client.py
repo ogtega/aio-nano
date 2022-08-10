@@ -15,7 +15,7 @@ from aio_nano.rpc.models import (
     BlockInfo,
     ConfirmationInfo,
     ConfirmationQuorum,
-    DeterministicKeypair,
+    Keypair,
     LazyBootstrapInfo,
     LedgerInfo,
     PeerInfo,
@@ -68,7 +68,7 @@ class Client:
         kwargs["account"] = account
 
         res = await self.call("account_balance", **kwargs)
-        return AccountBalances(**res)
+        return parse_obj_as(AccountBalances, res)
 
     async def account_block_count(self, account: str, **kwargs: Any) -> int:
         """
@@ -116,7 +116,7 @@ class Client:
         kwargs["account"] = account
 
         res = await self.call("account_info", **kwargs)
-        return AccountInfo(**res)
+        return parse_obj_as(AccountInfo, res)
 
     async def account_key(self, account: str, **kwargs: Any) -> str:
         """
@@ -297,7 +297,7 @@ class Client:
         kwargs["hash"] = hash
 
         res = await self.call("block_count", **kwargs)
-        return BlockCounts(**res)
+        return parse_obj_as(BlockCounts, res)
 
     @overload
     async def block_create(
@@ -343,7 +343,7 @@ class Client:
         kwargs["type"] = "state"
 
         res = await self.call("block_create", **kwargs)
-        return SignedBlock(**res)
+        return parse_obj_as(SignedBlock, res)
 
     async def block_hash(self, block: Any, **kwargs: Any) -> str:
         """
@@ -368,7 +368,7 @@ class Client:
 
         res = await self.call("block_info", **kwargs)
 
-        return BlockInfo(**res)
+        return parse_obj_as(BlockInfo, res)
 
     async def blocks(self, hashes: list[str], **kwargs: Any) -> dict[str, Block]:
         """
@@ -516,9 +516,7 @@ class Client:
         res = await self.call("delegators_count", **kwargs)
         return int(res.get("count", 0))
 
-    async def deterministic_key(
-        self, seed: str, index: int, **kwargs
-    ) -> DeterministicKeypair:
+    async def deterministic_key(self, seed: str, index: int, **kwargs) -> Keypair:
         """
         Derive deterministic keypair from seed based on index
         https://docs.nano.org/commands/rpc-protocol/#deterministic_key
@@ -528,7 +526,7 @@ class Client:
         kwargs["index"] = index
 
         res = await self.call("deterministic_key", **kwargs)
-        return parse_obj_as(DeterministicKeypair, res)
+        return parse_obj_as(Keypair, res)
 
     async def frontier_count(self, **kwargs: Any) -> int:
         """
@@ -566,16 +564,16 @@ class Client:
         res = await self.call("keepalive", **kwargs)
         return bool(res.get("started"))
 
-    async def key_create(self, **kwargs: Any) -> DeterministicKeypair:
+    async def key_create(self, **kwargs: Any) -> Keypair:
         """
         Derive deterministic keypair from seed based on index
         https://docs.nano.org/commands/rpc-protocol/#key_create
         """
 
         res = await self.call("key_create", **kwargs)
-        return DeterministicKeypair(**res)
+        return Keypair(**res)
 
-    async def key_expand(self, key: str, **kwargs: Any) -> DeterministicKeypair:
+    async def key_expand(self, key: str, **kwargs: Any) -> Keypair:
         """
         Derive public key and account number from private key
         https://docs.nano.org/commands/rpc-protocol/#key_expand
@@ -584,7 +582,7 @@ class Client:
         kwargs["key"] = key
 
         res = await self.call("key_expand", **kwargs)
-        return DeterministicKeypair(**res)
+        return Keypair(**res)
 
     async def ledger(
         self, account: str, count: int = 1, **kwargs
@@ -599,9 +597,9 @@ class Client:
         kwargs["count"] = count
 
         res = await self.call("ledger", **kwargs)
-        accounts = dict[str, Any](res.get("accounts", {}))
+        accounts = res.get("accounts", {})
 
-        return {k: LedgerInfo(**v) for k, v in accounts.items()}
+        return parse_obj_as(dict[str, LedgerInfo], accounts)
 
     @overload
     async def peers(
@@ -611,7 +609,7 @@ class Client:
 
     @overload
     async def peers(
-        self, peer_details: Optional[Literal[False]], **kwargs
+        self, peer_details: Optional[Literal[False]] = None, **kwargs
     ) -> dict[str, int]:
         ...
 
@@ -628,19 +626,40 @@ class Client:
         peers = dict[str, Any](res.get("peers", {}))
 
         if peer_details:
-            return {k: PeerInfo(**v) for k, v in peers.items()}
+            return parse_obj_as(dict[str, PeerInfo], peers)
 
-        return {k: int(v) for k, v in peers.items()}
+        return parse_obj_as(dict[str, int], peers)
 
     @overload
-    async def process(self, block: Any, sync: Optional[Literal[True]], **kwargs) -> str:
+    async def process(
+        self,
+        block: Any,
+        sync: Optional[Literal[True]] = True,
+        *,
+        subtype: Optional[str] = None,
+        **kwargs: Any,
+    ) -> str:
         ...
 
     @overload
-    async def process(self, block: Any, sync: Literal[False], **kwargs) -> bool:
+    async def process(
+        self,
+        block: Any,
+        sync: Literal[False],
+        *,
+        subtype: Optional[str] = None,
+        **kwargs: Any,
+    ) -> bool:
         ...
 
-    async def process(self, block: Any, sync: Optional[bool] = True, **kwargs):
+    async def process(
+        self,
+        block: Any,
+        sync: Optional[bool] = True,
+        *,
+        subtype: Optional[str] = None,
+        **kwargs: Any,
+    ):
         """
         Publish block to the network.
         https://docs.nano.org/commands/rpc-protocol/#process
@@ -651,12 +670,14 @@ class Client:
 
         if not sync:
             kwargs["async"] = True
+        if subtype:
+            kwargs["subtype"] = subtype
 
         res = await self.call("process", **kwargs)
 
         if not sync:
             return bool(res.get("started"))
-        return str(res.get("hash"))
+        return res.get("hash")
 
     @overload
     async def receivable(  # type: ignore[misc]
@@ -698,7 +719,7 @@ class Client:
         threshold: Optional[int] = None,
         source: Optional[bool] = None,
         **kwargs,
-    ):  # TODO: Fix return type hint for cases where threshold is a 0 literal
+    ):
         """
         Returns a list of block hashes which have not yet been received by this account.
         https://docs.nano.org/commands/rpc-protocol/#receivable
@@ -714,10 +735,10 @@ class Client:
 
         blocks = res.get("blocks")
 
-        if source and blocks:
-            return parse_obj_as(dict[str, Receivable], blocks)
-        if threshold and blocks:
-            return parse_obj_as(dict[str, int], blocks)
+        if source:
+            return parse_obj_as(dict[str, Receivable], blocks or {})
+        if threshold:
+            return parse_obj_as(dict[str, int], blocks or {})
 
         return parse_obj_as(list[str], blocks or [])
 
@@ -739,21 +760,23 @@ class Client:
         """
 
         res = await self.call("representatives", **kwargs)
-        return {str(k): int(v) for k, v in res.get("representatives", {}).items()}
+        return parse_obj_as(dict[str, int], res.get("representatives", {}))
 
     @overload
     async def representatives_online(
-        self, weight: Literal[True], **kwargs
+        self, weight: Literal[True], **kwargs: Any
     ) -> dict[str, Representative]:
         ...
 
     @overload
     async def representatives_online(
-        self, weight: Optional[Literal[False]] = False, **kwargs
+        self, weight: Optional[Literal[False]] = False, **kwargs: Any
     ) -> list[str]:
         ...
 
-    async def representatives_online(self, weight: Optional[bool] = None, **kwargs):
+    async def representatives_online(
+        self, weight: Optional[bool] = None, **kwargs: Any
+    ):
         """
         Returns a list of online representative accounts that have voted recently
         https://docs.nano.org/commands/rpc-protocol/#representatives_online
@@ -766,36 +789,111 @@ class Client:
         representatives = res.get("representatives")
 
         if weight and representatives:
-            return {
-                str(k): Representative(**v) for k, v in dict(representatives).items()
-            }
+            return parse_obj_as(dict[str, Representative], representatives or {})
 
-        return list[str](representatives or [])
+        return parse_obj_as(list[str], representatives or [])
 
-    async def republish(self, **kwargs: Any) -> list[str]:
+    async def republish(self, hash: str, **kwargs: Any) -> list[str]:
         """
         Rebroadcast blocks starting at hash to the network
         https://docs.nano.org/commands/rpc-protocol/#republish
         """
 
+        kwargs["hash"] = hash
+
         res = await self.call("republish", **kwargs)
-        return list(res.get("blocks", []))
+        blocks = res.get("blocks", [])
+
+        return parse_obj_as(list[str], blocks)
+
+    @overload
+    async def sign(
+        self,
+        *,
+        block: Any,
+        hash: None = None,
+        key: str,
+        account: None = None,
+        wallet: None = None,
+        **kwargs: Any,
+    ) -> Block:
+        ...
+
+    @overload
+    async def sign(
+        self,
+        *,
+        block: None = None,
+        hash: str,
+        key: str,
+        account: None = None,
+        wallet: None = None,
+        **kwargs: Any,
+    ) -> str:
+        ...
+
+    @overload
+    async def sign(
+        self,
+        *,
+        block: Any,
+        hash: None = None,
+        key: None = None,
+        account: str,
+        wallet: str,
+        **kwargs: Any,
+    ) -> Block:
+        ...
+
+    @overload
+    async def sign(
+        self,
+        *,
+        block: None = None,
+        hash: str,
+        key: None = None,
+        account: str,
+        wallet: str,
+        **kwargs: Any,
+    ) -> str:
+        ...
 
     async def sign(
-        self, block: Optional[Any], hash: Optional[str], **kwargs: Any
-    ) -> str:
+        self,
+        *,
+        block: Optional[Any] = None,
+        hash: Optional[str] = None,
+        key: Optional[str] = None,
+        account: Optional[str] = None,
+        wallet: Optional[str] = None,
+        **kwargs: Any,
+    ) -> str | Block:
         """
         Signing provided block with private key or key of account from wallet
         https://docs.nano.org/commands/rpc-protocol/#sign
         """
 
-        kwargs["json_block"] = True
         if block:
+            kwargs["json_block"] = True
             kwargs["block"] = dict(block)
-        if hash:
+        elif hash:
             kwargs["hash"] = hash
+        else:
+            raise RPCException
+
+        if key:
+            kwargs["key"] = key
+        elif account and wallet:
+            kwargs["account"] = account
+            kwargs["wallet"] = wallet
+        else:
+            raise RPCException
 
         res = await self.call("sign", **kwargs)
+
+        if block := res.get("block"):
+            return parse_obj_as(Block, block)
+
         return str(res.get("signature", ""))
 
     async def stats_clear(self, **kwargs: Any) -> bool:
@@ -827,17 +925,49 @@ class Client:
         kwargs["count"] = count
 
         res = await self.call("successors", **kwargs)
-        return list(res.get("blocks", []))
+        return parse_obj_as(list[str], res.get("blocks", []))
 
     @overload
-    async def telemetry(self, raw: Literal[True], **kwargs: Any) -> list[Telemetry]:
+    async def telemetry(
+        self,
+        *,
+        address: None = None,
+        port: None = None,
+        raw: Literal[True],
+        **kwargs: Any,
+    ) -> list[Telemetry]:
         ...
 
     @overload
-    async def telemetry(self, raw: Literal[False], **kwargs: Any) -> Telemetry:
+    async def telemetry(
+        self,
+        *,
+        address: str,
+        port: str,
+        raw: Optional[Literal[False]] = None,
+        **kwargs: Any,
+    ) -> Telemetry:
         ...
 
-    async def telemetry(self, raw: bool = False, **kwargs):
+    @overload
+    async def telemetry(
+        self,
+        *,
+        address: None = None,
+        port: None = None,
+        raw: Optional[Literal[False]] = None,
+        **kwargs: Any,
+    ) -> Telemetry:
+        ...
+
+    async def telemetry(
+        self,
+        *,
+        address: Optional[str] = None,
+        port: Optional[str] = None,
+        raw: Optional[bool] = None,
+        **kwargs,
+    ):
         """
         Return metrics from other nodes on the network. By default, returns a summarized
         view of the whole network. See below for details on obtaining local telemetry data.
@@ -846,10 +976,13 @@ class Client:
 
         if raw:
             kwargs["raw"] = raw
+        if address and port:
+            kwargs["address"] = address
+            kwargs["port"] = port
 
         res = await self.call("telemetry", **kwargs)
 
-        if raw:
+        if not (address and port) and raw:
             return parse_obj_as(list[Telemetry], res.get("metrics", []))
 
         return parse_obj_as(Telemetry, res)
@@ -875,9 +1008,9 @@ class Client:
 
         res = await self.call("version", **kwargs)
 
-        return VersionInfo(**res)
+        return parse_obj_as(VersionInfo, res)
 
-    async def unchecked(self, count: Optional[int], **kwargs: Any) -> list[Block]:
+    async def unchecked(self, count: Optional[int], **kwargs: Any) -> dict[str, Block]:
         """
         Returns a list of pairs of unchecked block hashes and their json representation
         up to count
@@ -892,7 +1025,7 @@ class Client:
         res = await self.call("unchecked", **kwargs)
         blocks = res.get("blocks")
 
-        return parse_obj_as(list[Block], blocks if blocks else [])
+        return parse_obj_as(dict[str, Block], blocks if blocks else [])
 
     async def unchecked_clear(self, **kwargs: Any) -> bool:
         """
@@ -910,14 +1043,15 @@ class Client:
         https://docs.nano.org/commands/rpc-protocol/#unchecked_get
         """
 
+        kwargs["json_block"] = True
         kwargs["hash"] = hash
 
         res = await self.call("unchecked_get", **kwargs)
 
-        return Block(**res)
+        return parse_obj_as(Block, res.get("contents"))
 
     async def unchecked_keys(
-        self, key: str, count: Optional[int], **kwargs
+        self, key: str, count: Optional[int] = 1, **kwargs
     ) -> list[UncheckedBlock]:
         """
         Retrieves unchecked database keys, blocks hashes & a json representations of
@@ -932,12 +1066,12 @@ class Client:
             kwargs["count"] = count
 
         res = await self.call("unchecked_keys", **kwargs)
-        unchecked = res.get("unchecked")
+        unchecked = res.get("unchecked", [])
 
         return parse_obj_as(list[UncheckedBlock], unchecked)
 
     async def unopened(
-        self, account: Optional[str], count: Optional[int], **kwargs
+        self, account: Optional[str] = None, count: Optional[int] = -1, **kwargs
     ) -> dict[str, int]:
         """
         Returns the total receivable balance for unopened accounts in the local database,
@@ -982,7 +1116,9 @@ class Client:
 
     async def work_generate(self, hash: str, **kwargs: Any) -> WorkInfo:
         """
-        Stop generating work for block
+        Generates work for block. hash is the frontier of the account or in the case of
+        an open block, the public key representation of the account which can be found
+        with [account_key](https://docs.nano.org/commands/rpc-protocol/#account_key)
         https://docs.nano.org/commands/rpc-protocol/#work_generate
         """
 
@@ -990,9 +1126,9 @@ class Client:
 
         res = await self.call("work_generate", **kwargs)
 
-        return WorkInfo(**res)
+        return parse_obj_as(WorkInfo, res)
 
-    async def work_peer_add(self, address: str, port: str, **kwargs: Any) -> bool:
+    async def work_peer_add(self, address: str, port: str | int, **kwargs: Any) -> bool:
         """
         Add specific IP address and port as work peer for node until restart
         https://docs.nano.org/commands/rpc-protocol/#work_peer_add
