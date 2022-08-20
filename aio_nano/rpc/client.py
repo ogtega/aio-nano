@@ -106,7 +106,7 @@ class Client:
         res = await self.call("account_history", **kwargs)
         return parse_obj_as(AccountHistory, res)
 
-    async def account_info(self, account: str, **kwargs: Any) -> AccountInfo:
+    async def account_info(self, account: str, **kwargs: Any) -> Optional[AccountInfo]:
         """
         Returns frontier, open block, change representative block, balance, last
         modified timestamp from local database & block count for account.
@@ -115,8 +115,11 @@ class Client:
 
         kwargs["account"] = account
 
-        res = await self.call("account_info", **kwargs)
-        return parse_obj_as(AccountInfo, res)
+        try:
+            res = await self.call("account_info", **kwargs)
+            return parse_obj_as(AccountInfo, res)
+        except RPCException:
+            return None
 
     async def account_key(self, account: str, **kwargs: Any) -> str:
         """
